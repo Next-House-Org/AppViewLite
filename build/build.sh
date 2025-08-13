@@ -13,7 +13,6 @@ cd ../ || { echo "Failed to change directory. Exiting."; exit 1; }
 
 # Build the Docker image using the Dockerfile in the build directory
 docker build -f build/Dockerfile -t ${DOCKER_IMAGE} .
-#docker build -f Dockerfile -t ${DOCKER_IMAGE} .
 
 # Check if the build was successful
 if [ $? -eq 0 ]; then
