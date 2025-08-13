@@ -7,7 +7,7 @@ pipeline {
         DOCKER_IMAGE = 'knockthedoor/bluesky-appview' // Docker image name
         EC2_CREDENTIALS_ID = 'ec2-ssh-key-id' // Replace with your EC2 SSH key credentials ID
         EC2_USER = 'ubuntu' // EC2 instance user
-        EC2_HOST = 'ec2-35-173-131-126.compute-1.amazonaws.com' // Replace with your EC2 instance public DNS
+        EC2_HOST = 'ec2-100-29-145-162.compute-1.amazonaws.com' // Replace with your EC2 instance public DNS
         //EC2_HOST = 'ec2-98-84-67-183.compute-1.amazonaws.com' // Replace with your EC2 instance public DNS
         DEPLOY_PATH = '/data/applications/release/bluesky-appview' // Deployment path on EC2 instance
         EMAIL_RECIPIENTS = 'tharun@knockthedoor.com' // Replace with the recipient's email address
