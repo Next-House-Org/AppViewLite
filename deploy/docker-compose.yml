@@ -2,17 +2,15 @@ version: "3.8"
 
 services:
   bluesky-appview:
-    build: .
+    image: docker.nexthouse.org/knockthedoor/bluesky-appview:latest
     container_name: bluesky-appview
+    restart: unless-stopped
     ports:
       - "61749:61749"
-    volumes:
-      # Persist database & checkpoint files
-      - ./data:/root/BskyAppViewLiteData
-      # Optional: mount git if needed
-      # - ./your-local-git-folder/.git:/app/.git
     environment:
-      DOTNET_URLS: "http://+:61749"
-      SKIP_GIT_LOG: "1"
-      APP_ALLOW_NEW_DATABASE: "1"
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ALLOW_NEW_DB=1
+      - SKIP_GIT_LOG=1
+    volumes:
+      - ./data:/root/BskyAppViewLiteData
 
