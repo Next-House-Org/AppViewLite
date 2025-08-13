@@ -42,8 +42,8 @@ EXPOSE 61749
 # Environment variables
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ALLOW_NEW_DB=1
-ENV DOTNET_URLS=http://+:61749    # <-- force HTTP only
-ENV DOTNET_HTTPS_PORT=0           # <-- disables HTTPS
+ENV DOTNET_URLS=http://+:61749    
+ENV DOTNET_HTTPS_PORT=0           
 ENV SKIP_GIT_LOG=1
 
 # Persistent volume for DB/checkpoints
