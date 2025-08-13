@@ -9,3 +9,6 @@ services:
       - "61749:61749"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
+      - ALLOW_NEW_DB=1    # if your app reads env var to allow new DB
+    volumes:
+      - ./data:/app/data   # your DB/checkpoints go here
