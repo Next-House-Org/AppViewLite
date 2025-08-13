@@ -52,3 +52,4 @@ VOLUME /root/BskyAppViewLiteData
 # Entry point
 ENTRYPOINT ["dotnet", "AppViewLite.Web.dll", "--allow-new-database", "1"]
 
+
