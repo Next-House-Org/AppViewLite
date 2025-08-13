@@ -1,0 +1,170 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_CREDENTIALS_ID = 'docker-credentials-id' // Replace with your Docker credentials ID
+        DOCKER_REGISTRY = 'docker.nexthouse.org' // Docker registry URL
+        DOCKER_IMAGE = 'knockthedoor/bluesky-appview' // Docker image name
+        EC2_CREDENTIALS_ID = 'ec2-ssh-key-id' // Replace with your EC2 SSH key credentials ID
+        EC2_USER = 'ubuntu' // EC2 instance user
+        EC2_HOST = 'ec2-54-226-38-243.compute-1.amazonaws.com' // Replace with your EC2 instance public DNS
+        //EC2_HOST = 'ec2-98-84-67-183.compute-1.amazonaws.com' // Replace with your EC2 instance public DNS
+        DEPLOY_PATH = '/data/applications/release/bluesky-appview' // Deployment path on EC2 instance
+        EMAIL_RECIPIENTS = 'tharun@knockthedoor.com' // Replace with the recipient's email address
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    cleanWs()
+                    checkout scm
+                }
+            }
+        }
+
+        stage('Extract Git Tag and Branch') {
+            steps {
+                script {
+                    try {
+                        // Ensure the working directory is clean
+                        sh 'git diff-index --quiet HEAD --'
+
+                        def gitTag = sh(script: 'git describe --tags --abbrev=0', returnStdout: true).trim()
+                        if (!gitTag) {
+                            error "No Git tag found. Please tag the commit before building."
+                        }
+                        env.DOCKER_TAG = "${gitTag}-${env.BUILD_NUMBER}"
+                        env.VERSION = "${gitTag}" // Use for versioning
+
+                        // Automatically fetch branch
+                        def gitBranch = env.GIT_BRANCH ?: sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+                        env.GIT_BRANCH = gitBranch
+                        
+                        echo "Using Docker tag: ${env.DOCKER_TAG}"
+                        echo "Deploying branch: ${env.GIT_BRANCH}"
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        error "Failed to extract Git tag or branch: ${e.getMessage()}"
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    try {
+                        dir('build') {
+                            sh './build.sh'
+                        }
+                        echo "Docker image built successfully."
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        error "Docker build failed: ${e.getMessage()}"
+                    }
+                }
+            }
+        }
+
+        stage('Tag Docker Images') {
+            steps {
+                script {
+                    try {
+                        def dockerImage = "${DOCKER_IMAGE}"
+                        def tag = "${env.DOCKER_TAG}"
+                        sh "docker tag ${dockerImage} ${DOCKER_REGISTRY}/${dockerImage}:${tag}"
+                        sh "docker tag ${dockerImage} ${DOCKER_REGISTRY}/${dockerImage}:latest"
+                        echo "Tagged Docker images with ${tag} and latest."
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        error "Failed to tag Docker images: ${e.getMessage()}"
+                    }
+                }
+            }
+        }
+
+        stage('Push Docker Images') {
+            steps {
+                script {
+                    try {
+                        withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                            sh "echo ${DOCKER_PASSWORD} | docker login ${DOCKER_REGISTRY} -u ${DOCKER_USERNAME} --password-stdin"
+
+                            def dockerImage = "${DOCKER_REGISTRY}/${DOCKER_IMAGE}"
+                            def tag = "${env.DOCKER_TAG}"
+                            sh "docker push ${dockerImage}:${tag}"
+                            sh "docker push ${dockerImage}:latest"
+                            echo "Pushed Docker images to registry."
+                        }
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        error "Failed to push Docker images: ${e.getMessage()}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to EC2') {
+            steps {
+                script {
+                    try {
+                        sshagent([EC2_CREDENTIALS_ID]) {
+                            sh """
+                                echo "Deploying Docker image ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${env.DOCKER_TAG} to ${EC2_HOST}"
+                                # Create the deployment directory if it doesn't exist
+                                ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} 'mkdir -p ${DEPLOY_PATH}'
+                                # Upload all files in the deploy directory
+                                scp -o StrictHostKeyChecking=no -r deploy/* ${EC2_USER}@${EC2_HOST}:${DEPLOY_PATH}/
+                                ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                                    docker-compose -f ${DEPLOY_PATH}/docker-compose.yml pull &&
+                                    docker-compose -f ${DEPLOY_PATH}/docker-compose.yml down &&
+                                    docker-compose -f ${DEPLOY_PATH}/docker-compose.yml up -d
+                                '
+                            """
+                            echo "Deployment to EC2 completed."
+                        }
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        error "Deployment to EC2 failed: ${e.getMessage()}"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Build succeeded: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            emailext(
+                to: "${EMAIL_RECIPIENTS}",
+                subject: "Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """\
+                    <p>The build has succeeded!</p>
+                    <p>Job: ${env.JOB_NAME}</p>
+                    <p>Build Number: ${env.BUILD_NUMBER}</p>
+                    <p>Build URL: ${env.BUILD_URL}</p>
+                """,
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+            )
+        }
+        failure {
+            echo "Build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            emailext(
+                to: "${EMAIL_RECIPIENTS}",
+                subject: "Build Failure: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """\
+                    <p>The build has failed!</p>
+                    <p>Job: ${env.JOB_NAME}</p>
+                    <p>Build Number: ${env.BUILD_NUMBER}</p>
+                    <p>Build URL: ${env.BUILD_URL}</p>
+                """,
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+            )
+        }
+    }
+}

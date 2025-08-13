@@ -1,0 +1,7 @@
+# BUILD_CONFIG V.1.1
+# Description: Configuration file for Docker build and push
+
+DOCKER_IMAGE='knockthedoor/bluesky-appview'
+DOCKER_REGISTRY='docker.nexthouse.org'
+DOCKER_COMPOSE_PATH="/data/release/${JOB_BASE_NAME}"
+

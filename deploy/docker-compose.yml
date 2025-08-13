@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  bluesky-appview:
+    image: docker.nexthouse.org/knockthedoor/bluesky-appview:latest
+    container_name: bluesky-appview
+    restart: unless-stopped
+    ports:
+      - "61749:61749"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
