@@ -1,37 +1,35 @@
-# Build stage
+# Stage 1: Build
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Copy solution and projects
-COPY src/AppViewLite.sln ./
-COPY src/AppViewLite/*.csproj ./AppViewLite/
-COPY src/AppViewLite.Web/*.csproj ./AppViewLite.Web/
-
-# Restore dependencies
-RUN dotnet restore AppViewLite.sln
-
 # Copy all source code
-COPY src/. .
+COPY . .
 
-# Publish the app
-RUN dotnet publish AppViewLite.sln -c Release -o /app/publish
+# Optional: include .git if you want git log to work
+# COPY .git /src/.git
 
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+# Restore and publish
+RUN dotnet restore
+RUN dotnet publish -c Release -o /app
+
+# Stage 2: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 
-# Copy published files
-COPY --from=build /app/publish .
+# Copy published app
+COPY --from=build /app ./
 
-# Set environment variables to disable HTTPS
+# Environment variables
 ENV DOTNET_URLS=http://+:61749
-ENV DOTNET_RUNNING_IN_CONTAINER=true
-ENV DOTNET_DEVELOPER_CERTS=false
+ENV SKIP_GIT_LOG=1
 ENV ASPNETCORE_ENVIRONMENT=Production
 
-# Expose only HTTP port
+# Expose HTTP port
 EXPOSE 61749
 
-# Start the app
-ENTRYPOINT ["dotnet", "AppViewLite.Web.dll"]
+# Persistent data volume
+VOLUME /root/BskyAppViewLiteData
+
+# Run the app
+ENTRYPOINT ["dotnet", "AppViewLite.Web.dll", "--allow-new-database", "1"]
 
