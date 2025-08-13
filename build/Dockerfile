@@ -34,11 +34,12 @@ WORKDIR /app
 # Copy published files from build stage
 COPY --from=build /app/publish .
 
-# Expose the HTTP port
+# Expose the HTTP port only
 EXPOSE 61749
 
-# Force HTTP only (ALB will handle SSL termination)
+# Force HTTP only (ALB handles SSL)
 ENV DOTNET_URLS=http://+:61749
+ENV ASPNETCORE_URLS=http://+:61749
 
 # Optional: allow creating new database if not present
 ENV ALLOW_NEW_DB=1
