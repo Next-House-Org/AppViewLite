@@ -10,7 +10,6 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ALLOW_NEW_DB=1
-      - SKIP_GIT_LOG=1
     volumes:
       - ./data:/root/BskyAppViewLiteData
 
